@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.pytype/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+
+# Environments
+.venv/
+venv/
+env/
+.env
+.env.local
+.env.*.local
+
+# Package managers
+uv.lock
+pip-wheel-metadata/
+
+# Project artifacts
+runs/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+crucible.yaml
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Model weights, caches, and large binary assets (never commit)
+models/
+weights/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.h5
+*.hdf5
+.cache/
+.mp_cache/
+~/.cache/
+
+# Materials data files (can be large)
+*.cif
+*.vasp
+POSCAR
+CONTCAR
+OUTCAR
+vasprun.xml
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+Thumbs.db
