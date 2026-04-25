@@ -13,10 +13,6 @@ For the design, see [`ARCHITECTURE.md`](./ARCHITECTURE.md). For tasks and curren
 
 Long-term: same code path, scaled out folding@home-style across volunteer GPUs (Phase 3 HTTP server + pipx workers; Phase 4 BOINC).
 
-## A note on ALIGNN
-
-ALIGNN is **not a hosted API** — it's an open-source PyTorch package from NIST (MIT license) that ships with multiple pretrained checkpoints. We import it locally and run inference on the user's GPU. A separate `alignn-ff` variant is used as a force-field relaxer for the cheap-energy screen. Same picture for CrystaLLM and MatterGen: open-source local packages, no API keys, no rate limits.
-
 ## Materials Project integration
 
 Crucible queries Materials Project for three things:
