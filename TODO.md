@@ -9,7 +9,7 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 ## Phase 0 — Bootstrapping (1–2 days)
 
 - [x] `pyproject.toml` skeleton — project metadata + empty entry-point groups for all 7 plugin kinds (generators, relaxers, predictors, rankers, orchestrators, stores, queues).
-- [ ] `uv` lockfile — run `uv sync --extra ml` locally to resolve and lock `torch` + `alignn` + the rest. Must run on each contributor's machine; not committed-as-pinned to the repo at this stage.
+- [x] `uv` lockfile — run `uv sync --extra ml` locally to resolve and lock `torch` + `alignn` + the rest. Must run on each contributor's machine; not committed-as-pinned to the repo at this stage.
 - [x] `crucible/` package skeleton — `__init__.py` files for every subpackage; module-level docstrings on every planned file in the layout (`core/`, `gauntlet/`, `data/`, `generators/`, `relaxers/`, `predictors/`, `rankers/`, `orchestrators/`, `stores/`, `queues/`, `agents/`, `reports/`).
 - [x] `.env.example` with `ANTHROPIC_API_KEY`, `MP_API_KEY`, `CUDA_VISIBLE_DEVICES`, `CRUCIBLE_OUTPUT_DIR`.
 - [x] `crucible.yaml.example` matching ARCHITECTURE.md §7.
@@ -23,18 +23,18 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 
 ### Core
 
-- [ ] `core/models.py` — `Structure`, `Prediction`, `Job`, `Result`, `ModelProvenance`.
-- [ ] `core/protocols.py` — every contract from ARCHITECTURE.md §3.
-- [ ] `core/units.py` — eV, eV/atom, GPa, Å + safe converters.
+- [x] `core/models.py` — `Structure`, `Prediction`, `Job`, `Result`, `ModelProvenance`.
+- [x] `core/protocols.py` — every contract from ARCHITECTURE.md §3.
+- [x] `core/units.py` — eV, eV/atom, GPa, Å + safe converters.
 - [ ] `core/hashing.py` — canonical primitive-cell sha256 + AFLOW prototype label.
-- [ ] `core/config.py` — pydantic schema for `crucible.yaml`.
-- [ ] `core/registry.py` — entry-point loader with `lru_cache`.
-- [ ] `core/logging.py` — JSON line logger to file + rich console.
+- [x] `core/config.py` — pydantic schema for `crucible.yaml`.
+- [x] `core/registry.py` — entry-point loader with `lru_cache`.
+- [x] `core/logging.py` — JSON line logger to file + rich console.
 
 ### Storage & queue
 
-- [ ] `stores/sqlite_store.py` `LocalStore` — applies the SQLite schema in `__init__`, implements all `ResultStore` methods.
-- [ ] `queues/local_queue.py` `LocalQueue` over the `jobs` table + asyncio.Event.
+- [x] `stores/sqlite_store.py` `LocalStore` — applies the SQLite schema in `__init__`, implements all `ResultStore` methods.
+- [x] `queues/local_queue.py` `LocalQueue` over the `jobs` table + asyncio.Event.
 
 ### Gauntlet
 
@@ -65,7 +65,9 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 ### Validation
 
 - [ ] Smoke test: `crucible run --budget 20` produces ≥1 structure that passes all gauntlet stages and lands in `rankings`.
-- [ ] Tests: `test_units.py`, `test_hashing.py`, `test_registry.py`, `test_gauntlet.py` (minimal but real).
+- [x] `test_units.py` — done.
+- [x] `test_registry.py` — done. Also written outside TODO: `test_config.py`, `test_logging.py`, `test_store.py`, `test_queue.py`.
+- [ ] `test_hashing.py`, `test_gauntlet.py` — pending.
 
 ---
 
