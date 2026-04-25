@@ -109,9 +109,7 @@ def main() -> int:
                      not isinstance(_BadRanker(), Ranker))
 
     # ------------------------------------------------------------------
-    print("\n[4/4] Registry implemented; logging+config still scaffolded")
-    from crucible.core import config as cfg
-    from crucible.core import logging as crl
+    print("\n[4/5] Registry — implemented")
     from crucible.core.registry import GROUPS, list_plugins
 
     all_ok &= _check("GROUPS has 7 plugin kinds", len(GROUPS) == 7,
@@ -125,18 +123,62 @@ def main() -> int:
     except KeyError:
         all_ok &= _check("list_plugins('not_a_kind') raises KeyError", True)
 
-    try:
-        cfg.load_config("anything")
-        all_ok &= _check("config.load_config raises NotImplementedError", False,
-                         "silently succeeded — implementation slipped through")
-    except NotImplementedError:
-        all_ok &= _check("config.load_config raises NotImplementedError", True)
+    # ------------------------------------------------------------------
+    print("\n[5/5] Logging + Config — implemented; stores+queue still scaffolded")
+    import json
+    import logging as _stdlib_logging
+    import tempfile
+    from pathlib import Path
+
+    from crucible.core.config import CrucibleConfig, load_config
+    from crucible.core.logging import log_event, setup_logging
+
+    # config: real load against the committed example
+    repo_root = Path(__file__).resolve().parent.parent
+    example_yaml = repo_root / "crucible.yaml.example"
+    cfg = load_config(example_yaml)
+    all_ok &= _check("load_config(crucible.yaml.example) returns CrucibleConfig",
+                     isinstance(cfg, CrucibleConfig))
+    all_ok &= _check(f"  config.run.target == 'battery_cathode'",
+                     cfg.run.target == "battery_cathode")
+    all_ok &= _check(f"  config.orchestrator.options['model'] == 'claude-sonnet-4-6'",
+                     cfg.orchestrator.options["model"] == "claude-sonnet-4-6")
+
+    # logging: write a smoke event to a tmp dir, parse it back as JSON
+    with tempfile.TemporaryDirectory() as td:
+        # Reset shared 'crucible' logger so this run is isolated.
+        _logger = _stdlib_logging.getLogger("crucible")
+        for h in list(_logger.handlers):
+            h.close(); _logger.removeHandler(h)
+
+        logger = setup_logging("verify_smoke", td)
+        log_event(logger, stage="smoke", structure_hash="abc", passed=True)
+        events = Path(td) / "verify_smoke" / "events.jsonl"
+        all_ok &= _check("setup_logging created events.jsonl", events.exists())
+        rec = json.loads(events.read_text().splitlines()[-1])
+        all_ok &= _check("event has required envelope fields",
+                         {"ts", "level", "logger", "run_id", "stage"}.issubset(rec))
+        all_ok &= _check("event['stage'] round-trips", rec["stage"] == "smoke")
+        # cleanup
+        for h in list(logger.handlers):
+            h.close(); logger.removeHandler(h)
+
+    # store + queue still scaffolded (Wave 2 hasn't landed yet)
+    from crucible.queues.local_queue import LocalQueue
+    from crucible.stores.sqlite_store import LocalStore
 
     try:
-        crl.setup_logging("r1", "./runs")
-        all_ok &= _check("logging.setup_logging raises NotImplementedError", False)
+        LocalStore("/tmp/never_used.db")
+        all_ok &= _check("stores.LocalStore raises NotImplementedError", False,
+                         "silently succeeded — implementation slipped through")
     except NotImplementedError:
-        all_ok &= _check("logging.setup_logging raises NotImplementedError", True)
+        all_ok &= _check("stores.LocalStore raises NotImplementedError", True)
+
+    try:
+        LocalQueue("/tmp/never_used.db")
+        all_ok &= _check("queues.LocalQueue raises NotImplementedError", False)
+    except NotImplementedError:
+        all_ok &= _check("queues.LocalQueue raises NotImplementedError", True)
 
     # ------------------------------------------------------------------
     print()

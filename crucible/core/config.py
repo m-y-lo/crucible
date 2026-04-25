@@ -5,6 +5,10 @@ Mirrors `crucible.yaml.example`:
     orchestrator, materials_project.
 
 Top-level entry: `load_config(path) -> CrucibleConfig`.
+
+Every section uses `extra='forbid'` so a typo in YAML (e.g.
+`formatation_energy_max_eV_per_atom`) raises `ValidationError` at load
+time instead of silently being ignored.
 """
 
 from __future__ import annotations
@@ -12,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -24,88 +29,91 @@ class _Strict(BaseModel):
 class RunSection(_Strict):
     """`run:` block — what we are searching for and the spend cap."""
 
-    # TODO Wave 1:
-    #   target: str                        # ranker plugin name, e.g. "battery_cathode"
-    #   budget: int = Field(ge=1)          # max structures fully predicted
-    #   output_dir: Path = Path("./runs")
+    target: str
+    budget: int = Field(ge=1)
+    output_dir: Path = Path("./runs")
 
 
 class PluginEntry(_Strict):
     """A reference to a plugin by registered name + kwargs.
 
-    Used by generators[], relaxers[], predictors[]. `weight` only meaningful
-    for generators (sampling proportion) — leave as 1.0 elsewhere.
+    Used by `generators[]`, `relaxers[]`, `predictors[]`. `weight` is only
+    meaningful for generators (sampling proportion); leave at 1.0 elsewhere.
     """
 
-    # TODO Wave 1:
-    #   name: str
-    #   weight: float = 1.0
-    #   options: dict[str, Any] = Field(default_factory=dict)
+    name: str
+    weight: float = 1.0
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 class RankerSection(_Strict):
-    """`ranker:` block — single ranker, target-specific options."""
+    """`ranker:` block — single ranker plugin, target-specific options."""
 
-    # TODO Wave 1:
-    #   name: str
-    #   options: dict[str, Any] = Field(default_factory=dict)
+    name: str
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 class QueueSection(_Strict):
     """`queue:` block — which `JobQueue` plugin to instantiate."""
 
-    # TODO Wave 1: name: str = "local"; options: dict[str, Any] = {}
+    name: str = "local"
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 class StoreSection(_Strict):
     """`store:` block — which `ResultStore` plugin and its db path."""
 
-    # TODO Wave 1:
-    #   name: str = "sqlite"
-    #   path: Path = Path("./runs/crucible.db")
-    #   options: dict[str, Any] = Field(default_factory=dict)
+    name: str = "sqlite"
+    path: Path = Path("./runs/crucible.db")
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 class OrchestratorSection(_Strict):
     """`orchestrator:` block — which `Orchestrator` plugin and its options."""
 
-    # TODO Wave 1:
-    #   name: str = "claude_tools"
-    #   options: dict[str, Any] = {"model": "claude-sonnet-4-6", "max_iterations": 20}
+    name: str = "claude_tools"
+    options: dict[str, Any] = Field(
+        default_factory=lambda: {"model": "claude-sonnet-4-6", "max_iterations": 20}
+    )
 
 
 class MaterialsProjectSection(_Strict):
     """`materials_project:` block — MP integration toggles."""
 
-    # TODO Wave 1:
-    #   enabled: bool = True
-    #   novelty_filter: bool = True
-    #   use_seeds: bool = False
+    enabled: bool = True
+    novelty_filter: bool = True
+    use_seeds: bool = False
 
 
 class CrucibleConfig(_Strict):
-    """Root of `crucible.yaml`."""
+    """Root of `crucible.yaml`.
 
-    # TODO Wave 1:
-    #   run: RunSection
-    #   generators: list[PluginEntry] = Field(default_factory=list)
-    #   relaxers: list[PluginEntry] = Field(default_factory=list)
-    #   predictors: list[PluginEntry]
-    #   ranker: RankerSection
-    #   queue: QueueSection = QueueSection()
-    #   store: StoreSection = StoreSection()
-    #   orchestrator: OrchestratorSection = OrchestratorSection()
-    #   materials_project: MaterialsProjectSection = MaterialsProjectSection()
+    Required: `run`, `predictors`, `ranker`. All other sections have
+    sensible defaults so a minimal config still validates.
+    """
+
+    run: RunSection
+    generators: list[PluginEntry] = Field(default_factory=list)
+    relaxers: list[PluginEntry] = Field(default_factory=list)
+    predictors: list[PluginEntry]
+    ranker: RankerSection
+    queue: QueueSection = Field(default_factory=QueueSection)
+    store: StoreSection = Field(default_factory=StoreSection)
+    orchestrator: OrchestratorSection = Field(default_factory=OrchestratorSection)
+    materials_project: MaterialsProjectSection = Field(
+        default_factory=MaterialsProjectSection
+    )
 
 
 def load_config(path: Path | str) -> CrucibleConfig:
-    """Load + validate a YAML config file.
+    """Load and validate a YAML config file.
 
-    Raises pydantic.ValidationError on schema mismatch, FileNotFoundError on
-    missing file. Any unknown YAML key is a hard error (extra='forbid').
+    Raises:
+        FileNotFoundError: if `path` does not exist.
+        pydantic.ValidationError: on schema mismatch (missing required
+            sections, unknown keys, wrong types, out-of-range values).
     """
-    # TODO Wave 1:
-    #   import yaml
-    #   raw = yaml.safe_load(Path(path).read_text())
-    #   return CrucibleConfig.model_validate(raw)
-    raise NotImplementedError
+    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if raw is None:
+        raw = {}
+    return CrucibleConfig.model_validate(raw)
