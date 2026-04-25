@@ -69,14 +69,14 @@ def setup_logging(run_id: str, output_dir: Path | str) -> _logging.Logger:
     """
     run_dir = Path(output_dir) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
-    target = run_dir / "events.jsonl"
+    target = (run_dir / "events.jsonl").resolve()
 
     logger = _logging.getLogger(_LOGGER_NAME)
     logger.setLevel(_logging.DEBUG)
     logger.propagate = False
 
     already_attached = any(
-        isinstance(h, _logging.FileHandler) and Path(h.baseFilename) == target
+        isinstance(h, _logging.FileHandler) and Path(h.baseFilename).resolve() == target
         for h in logger.handlers
     )
     if already_attached:
