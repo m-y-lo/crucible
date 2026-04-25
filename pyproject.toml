@@ -1,0 +1,113 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "crucible"
+version = "0.0.1"
+description = "Desktop materials discovery engine — generative search across crystal structures with ML property prediction."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "Ming Lo" }]
+keywords = ["materials-science", "crystal-structure", "machine-learning", "alignn", "crystallm", "mattergen"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+dependencies = [
+  # Orchestration & agent
+  "anthropic>=0.39.0",
+  # Config & validation
+  "pydantic>=2.6",
+  "pyyaml>=6.0",
+  # CLI & UX
+  "typer>=0.12",
+  "rich>=13.7",
+  # Async I/O
+  "httpx>=0.27",
+  "aiosqlite>=0.20",
+  # Materials science core
+  "pymatgen>=2024.6",
+  "ase>=3.23",
+  "mp-api>=0.42",
+]
+
+# Heavy / hardware-specific deps live under extras. Install with:
+#   uv sync --extra ml
+# CrystaLLM is not on PyPI; install from source per docs/install.md.
+[project.optional-dependencies]
+ml = [
+  "torch>=2.2",
+  "alignn>=2024.5.0",
+]
+
+[project.scripts]
+crucible = "crucible.cli:app"
+
+# Plugin entry points. Add a line under each section as the plugin is implemented.
+# See ARCHITECTURE.md §5 for the full list of planned plugin names.
+[project.entry-points."crucible.generators"]
+# crystallm        = "crucible.generators.crystallm:CrystaLLMGenerator"
+# mattergen_colab  = "crucible.generators.mattergen_colab:MatterGenColabGenerator"
+# mattergen_local  = "crucible.generators.mattergen_local:MatterGenLocalGenerator"
+# random_baseline  = "crucible.generators.random_baseline:RandomBaselineGenerator"
+
+[project.entry-points."crucible.relaxers"]
+# alignn_ff = "crucible.relaxers.alignn_ff:AlignnFFRelaxer"
+# chgnet    = "crucible.relaxers.chgnet:ChgnetRelaxer"
+# mace      = "crucible.relaxers.mace:MaceRelaxer"
+
+[project.entry-points."crucible.predictors"]
+# alignn = "crucible.predictors.alignn:AlignnPredictor"
+
+[project.entry-points."crucible.rankers"]
+# battery_cathode  = "crucible.rankers.battery_cathode:BatteryCathodeRanker"
+# refractory_alloy = "crucible.rankers.refractory_alloy:RefractoryAlloyRanker"
+# co2_sorbent      = "crucible.rankers.co2_sorbent:CO2SorbentRanker"
+
+[project.entry-points."crucible.orchestrators"]
+# claude_tools = "crucible.orchestrators.claude_tools:ClaudeOrchestrator"
+# rule_based   = "crucible.orchestrators.rule_based:RuleBasedOrchestrator"
+
+[project.entry-points."crucible.stores"]
+# sqlite = "crucible.stores.sqlite_store:LocalStore"
+
+[project.entry-points."crucible.queues"]
+# local = "crucible.queues.local_queue:LocalQueue"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.5",
+  "pyright>=1.1.370",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["crucible"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "ASYNC"]
+ignore = ["E501"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+include = ["crucible", "tests"]
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

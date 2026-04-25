@@ -64,3 +64,19 @@ Whenever you (the AI) complete a requested feature, you must automatically:
 If you add a new library, dependency, or compilation requirement:
 1. Update the `README.md` with the exact CLI commands needed to build/run the project (e.g., CMake flags, pip installs).
 2. Ensure any new required environment variables are added to a `.env.template` file.
+
+### F. Plugin Contracts
+Crucible is plugin-driven. Before writing or modifying any plugin, read `ARCHITECTURE.md` §3 and §5. The seven plugin kinds are: `generator`, `relaxer`, `predictor`, `ranker`, `orchestrator`, `store`, `queue`. Each is a `typing.Protocol` defined in `crucible/core/protocols.py`.
+
+* **Stay inside the contract.** A `Predictor` returns `dict[str, float]` with units in the keys (`"formation_energy_eV_per_atom"`, not `"formation_energy"`). A `Ranker` exposes `criteria()` and `score()` separately. Don't sneak side effects through these methods — they should be deterministic and side-effect-free.
+* **Always populate `ModelProvenance`.** Every `Predictor` and `Relaxer` must attach `(model_id, checkpoint, dataset, version, units)` to its outputs. The SQLite UNIQUE constraint `(structure_hash, model_id, checkpoint, version)` depends on this — missing or stale provenance silently breaks dedup.
+* **Register via entry points, not imports.** New plugins are wired through `pyproject.toml` `[project.entry-points."crucible.<kind>"]` blocks and loaded via `crucible.core.registry.load(kind, name)`. Don't add hardcoded `if name == "crystallm": ...` dispatch anywhere.
+* **Third-party plugins.** A new generator/relaxer/predictor/ranker authored externally should be installable as `pip install crucible-plugin-<x>` with no Crucible-side code change. If your work would force a Crucible edit to make the plugin visible, you've drifted from the contract — fix the contract instead.
+
+### G. Cost Model — Where API Calls Are Allowed
+The split between local and central compute is the load-bearing decision behind crowdsourcing. AI agents (and humans) editing this codebase must respect it:
+
+* **Workers never call the Anthropic API.** Anything in `crucible/gauntlet/`, `crucible/generators/`, `crucible/relaxers/`, `crucible/predictors/`, or `crucible/queues/http_queue.py` and the worker package may **not** import `anthropic` or otherwise reach a paid LLM endpoint. These run on volunteers' machines; volunteers donate compute, not money.
+* **Orchestrators are the only place LLM calls are allowed.** `crucible/orchestrators/claude_tools.py` is the canonical example. If a feature feels like it needs an LLM, that feature belongs behind the `Orchestrator` interface or in a new orchestrator plugin — not bolted onto a worker-side stage.
+* **`RuleBasedOrchestrator` must remain functional.** If a feature ever requires Claude to be present for the system to run, you've broken the Phase-3 deployment story. The discovery loop must still function (less adaptively) when the orchestrator is rule-based.
+* **Document API spend.** When introducing a new LLM-using code path, add a one-line comment estimating tokens-per-run so future maintainers can spot regressions.

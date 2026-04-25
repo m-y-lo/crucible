@@ -1,0 +1,60 @@
+# Crucible — example run config.
+# Copy to `crucible.yaml` and tweak for your target / hardware / budget.
+# Structural choices live here; secrets live in `.env`.
+
+run:
+  target: battery_cathode      # name of a `crucible.rankers` plugin
+  budget: 200                  # max structures fully predicted this run
+  output_dir: ./runs
+
+generators:
+  - name: crystallm
+    weight: 1.0                # sampling weight when multiple are configured
+    options:
+      checkpoint: lantunes/CrystaLLM-v1
+      temperature: 0.9
+      max_new_tokens: 1024
+
+  # Optional: route some samples through a Colab MatterGen worker.
+  # - name: mattergen_colab
+  #   weight: 0.5
+  #   options:
+  #     endpoint: https://your-colab-tunnel.example.com/generate
+  #     auth_token_env: MATTERGEN_COLAB_TOKEN
+
+relaxers:
+  - name: alignn_ff
+    options:
+      max_steps: 100
+
+predictors:
+  - name: alignn
+    options:
+      checkpoints:
+        - jv_formation_energy_peratom_alignn   # eV/atom, JARVIS-DFT
+        - jv_optb88vdw_bandgap                 # eV, JARVIS-DFT
+
+ranker:
+  name: battery_cathode
+  options:
+    formation_energy_max_eV_per_atom: -1.0
+    bandgap_max_eV: 1.5
+    require_li: true
+
+queue:
+  name: local
+
+store:
+  name: sqlite
+  path: ./runs/crucible.db
+
+orchestrator:
+  name: claude_tools
+  options:
+    model: claude-sonnet-4-6
+    max_iterations: 20
+
+materials_project:
+  enabled: true
+  novelty_filter: true         # gauntlet rejects rediscoveries
+  use_seeds: false             # Phase 2: condition generators on top-K MP structures
