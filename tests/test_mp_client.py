@@ -182,3 +182,49 @@ def test_get_structure_by_mp_id_miss(cache_path: Path) -> None:
         again = client.get_structure_by_mp_id("mp-does-not-exist")
     assert s is None and again is None
     assert fake.call_count == 1, "miss must also be cached"
+
+
+# --------------------------------------------------------------------------
+# get_entries_by_formula
+# --------------------------------------------------------------------------
+
+
+def test_get_entries_by_formula_returns_id_and_structure(cache_path: Path) -> None:
+    fake = FakeRester({"NaCl": [_nacl(), _kcl()]})
+    with patch.object(MPClient, "_open_rester", return_value=fake):
+        client = MPClient(api_key="x", cache_path=cache_path)
+        entries = client.get_entries_by_formula("NaCl")
+    assert len(entries) == 2
+    assert entries[0][0] == "mp-0"
+    assert entries[1][0] == "mp-1"
+    assert entries[0][1].composition.reduced_formula == "NaCl"
+
+
+def test_get_entries_by_formula_caches_separately(cache_path: Path) -> None:
+    """Calling the new method does not invalidate or get served by the
+    older ``get_structures_by_formula`` cache, and vice versa."""
+    fake = FakeRester({"NaCl": [_nacl()]})
+    with patch.object(MPClient, "_open_rester", return_value=fake):
+        client = MPClient(api_key="x", cache_path=cache_path)
+        entries = client.get_entries_by_formula("NaCl")
+        # Different namespace -> still 1 call so far.
+        assert fake.call_count == 1
+        # Calling the older method must still hit MP a second time.
+        structs = client.get_structures_by_formula("NaCl")
+        assert fake.call_count == 2
+        # Both subsequent same-method calls must be cache hits.
+        client.get_entries_by_formula("NaCl")
+        client.get_structures_by_formula("NaCl")
+        assert fake.call_count == 2
+    assert len(entries) == 1
+    assert len(structs) == 1
+
+
+def test_get_entries_empty_formula_returns_empty_list(cache_path: Path) -> None:
+    fake = FakeRester({})
+    with patch.object(MPClient, "_open_rester", return_value=fake):
+        client = MPClient(api_key="x", cache_path=cache_path)
+        first = client.get_entries_by_formula("Xx2Yy3")
+        second = client.get_entries_by_formula("Xx2Yy3")
+    assert first == [] and second == []
+    assert fake.call_count == 1
