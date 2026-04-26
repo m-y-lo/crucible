@@ -73,7 +73,7 @@ battery_cathode  = "crucible.rankers.battery_cathode:BatteryCathodeRanker"
 # co2_sorbent      = "crucible.rankers.co2_sorbent:CO2SorbentRanker"
 
 [project.entry-points."crucible.orchestrators"]
-# claude_tools = "crucible.orchestrators.claude_tools:ClaudeOrchestrator"
+claude_tools = "crucible.orchestrators.claude_tools:ClaudeOrchestrator"
 # rule_based   = "crucible.orchestrators.rule_based:RuleBasedOrchestrator"
 
 [project.entry-points."crucible.stores"]
