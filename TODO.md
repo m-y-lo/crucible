@@ -44,12 +44,12 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 - [x] `data/mp_client.py` — cached `MPRester` wrapper. SQLite cache, JSON-serialized payloads, separate cache namespaces per method.
 - [x] `gauntlet/novelty.py` — flag rediscoveries against MP via StructureMatcher; conservative on MP outage.
 - [x] `gauntlet/dedup.py` — three-tier (hash exact → prototype bucket → StructureMatcher fallback). Stateful `Deduplicator` per run.
-- [x] `gauntlet/pipeline.py` — composes stages with early exit; returns `GauntletResult` with event log; storage-agnostic.
+- [x] `gauntlet/pipeline.py` — composes stages with early exit; returns `GauntletResult` with event log for callers to persist.
 
 ### Generators / Relaxers / Predictors / Rankers
 
 - [ ] `generators/crystallm.py` — load weights, sample N CIFs, post-process via pymatgen.
-- [ ] `generators/random_baseline.py` — rattled JARVIS structure for sanity tests.
+- [x] `generators/random_baseline.py` — rattles a seed CIF / built-in NaCl baseline with reproducible RNG for sanity tests.
 - [ ] `relaxers/alignn_ff.py` — single-point energy for the cheap screen.
 - [ ] `predictors/alignn.py` — wraps `jv_formation_energy_peratom_alignn` and `jv_optb88vdw_bandgap`, populates `ModelProvenance`.
 - [ ] `rankers/battery_cathode.py` — `criteria()` (contains-Li, E_form < −1.0 eV/atom, bandgap < 1.5 eV) + `score()` with thresholds in docstring.
@@ -67,7 +67,7 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 - [ ] Smoke test: `crucible run --budget 20` produces ≥1 structure that passes all gauntlet stages and lands in `rankings`.
 - [x] `test_units.py` — done.
 - [x] `test_registry.py` — done. Also written outside TODO: `test_config.py`, `test_logging.py`, active `test_store.py`, active `test_queue.py`.
-- [x] `test_hashing.py`, `test_gauntlet_parse.py`, `test_gauntlet_composition.py`, `test_gauntlet_geometry.py`, `test_gauntlet_novelty.py`, `test_gauntlet_dedup.py`, `test_gauntlet_pipeline.py`, `test_mp_client.py`. Total repo: 106 passing.
+- [x] `test_hashing.py`, `test_gauntlet_parse.py`, `test_gauntlet_composition.py`, `test_gauntlet_geometry.py`, `test_gauntlet_novelty.py`, `test_gauntlet_dedup.py`, `test_gauntlet_pipeline.py`, `test_generators_random_baseline.py`, `test_mp_client.py`. Total repo: 116 passing.
 
 ---
 
