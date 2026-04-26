@@ -68,7 +68,7 @@ random_baseline  = "crucible.generators.random_baseline:RandomBaselineGenerator"
 # alignn = "crucible.predictors.alignn:AlignnPredictor"
 
 [project.entry-points."crucible.rankers"]
-# battery_cathode  = "crucible.rankers.battery_cathode:BatteryCathodeRanker"
+battery_cathode  = "crucible.rankers.battery_cathode:BatteryCathodeRanker"
 # refractory_alloy = "crucible.rankers.refractory_alloy:RefractoryAlloyRanker"
 # co2_sorbent      = "crucible.rankers.co2_sorbent:CO2SorbentRanker"
 
