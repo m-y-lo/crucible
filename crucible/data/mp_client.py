@@ -146,6 +146,33 @@ class MPClient:
         self._cache_put(key, [s.as_dict() for s in structures])
         return structures
 
+    def get_entries_by_formula(self, formula: str) -> list[tuple[str, Structure]]:
+        """Return ``[(mp_id, structure), ...]`` for every MP entry with this
+        reduced formula.
+
+        Differs from ``get_structures_by_formula`` only in carrying the
+        material_id alongside each Structure — needed by the novelty stage
+        so it can name *which* MP entry a rediscovery matches. Lives in a
+        separate cache namespace so neither method invalidates the other.
+        """
+        key = _query_key("get_entries_by_formula", formula=formula)
+        cached = self._cache_get(key)
+        if cached is not None:
+            return [(d["mp_id"], Structure.from_dict(d["structure"])) for d in cached]
+
+        with self._open_rester() as mpr:
+            docs = mpr.materials.summary.search(
+                formula=formula, fields=["material_id", "structure"]
+            )
+        entries: list[tuple[str, Structure]] = [
+            (str(d.material_id), d.structure) for d in docs if d.structure is not None
+        ]
+        self._cache_put(
+            key,
+            [{"mp_id": mp_id, "structure": s.as_dict()} for mp_id, s in entries],
+        )
+        return entries
+
     def get_structure_by_mp_id(self, mp_id: str) -> Structure | None:
         """Fetch a specific MP entry by id (e.g. ``"mp-19009"``).
 
