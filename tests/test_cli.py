@@ -169,15 +169,37 @@ def test_predict_missing_cif_path_errors(tmp_path: Path) -> None:
     assert "CIF not found" in result.output
 
 
-def test_predict_missing_predictor_plugin_errors(tmp_path: Path) -> None:
-    """ALIGNN is blocked on ML deps — the CLI must explain that."""
+def test_predict_unknown_predictor_name_errors(tmp_path: Path) -> None:
+    """A truly-unregistered name hits the KeyError branch and prints a hint."""
+    cif_path = tmp_path / "x.cif"
+    cif_path.write_text("dummy")
+    result = runner.invoke(
+        app, ["predict", str(cif_path), "--predictor", "no_such_predictor_xyz"]
+    )
+    assert result.exit_code == 1
+    assert "Predictor not registered" in result.output
+    assert "uv sync" in result.output or "ml" in result.output.lower()
+
+
+def test_predict_alignn_on_macos_surfaces_runtime_error(tmp_path: Path) -> None:
+    """ALIGNN is registered, but its constructor refuses on macOS because
+    DGL's prebuilt graphbolt binary is missing. The CLI must catch the
+    RuntimeError and exit cleanly rather than dump a traceback.
+    """
+    # Skip if DGL actually works (Linux / CUDA hosts).
+    try:
+        import dgl  # noqa: F401
+        from dgl import graphbolt  # noqa: F401
+        pytest.skip("DGL is importable on this host; ALIGNN can be constructed.")
+    except (ImportError, FileNotFoundError):
+        pass
+
     cif_path = tmp_path / "x.cif"
     cif_path.write_text("dummy")
     result = runner.invoke(app, ["predict", str(cif_path)])
     assert result.exit_code == 1
-    assert "Predictor not registered" in result.output
-    # Hint mentions how to fix it.
-    assert "uv sync" in result.output or "ml" in result.output.lower()
+    assert "Predictor unavailable" in result.output
+    assert "alignn" in result.output.lower() or "dgl" in result.output.lower()
 
 
 # ---------------------------------------------------------------------------

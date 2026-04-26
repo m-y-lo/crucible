@@ -195,6 +195,11 @@ def predict_cmd(
             "ALIGNN requires `uv sync --extra ml`.[/dim]"
         )
         raise typer.Exit(code=1) from exc
+    except RuntimeError as exc:
+        # Plugin is registered but its constructor refused (e.g. ALIGNN +
+        # DGL on macOS Apple Silicon). Surface the underlying message.
+        console.print(f"[red]Predictor unavailable: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
 
     props = pred.predict(cif)
     for key, value in props.items():

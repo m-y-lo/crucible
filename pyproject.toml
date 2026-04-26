@@ -46,6 +46,9 @@ dependencies = [
 ml = [
   "torch>=2.2",
   "alignn>=2024.5.0",
+  # CHGNet is the macOS-friendly alternative when DGL is broken (it uses
+  # pure PyTorch, no DGL). Used by `crucible.relaxers.chgnet:ChgnetRelaxer`.
+  "chgnet>=0.4",
 ]
 
 [project.scripts]
@@ -60,12 +63,12 @@ crucible = "crucible.cli:app"
 random_baseline  = "crucible.generators.random_baseline:RandomBaselineGenerator"
 
 [project.entry-points."crucible.relaxers"]
-# alignn_ff = "crucible.relaxers.alignn_ff:AlignnFFRelaxer"
-# chgnet    = "crucible.relaxers.chgnet:ChgnetRelaxer"
+alignn_ff = "crucible.relaxers.alignn_ff:AlignnFFRelaxer"
+chgnet    = "crucible.relaxers.chgnet:ChgnetRelaxer"
 # mace      = "crucible.relaxers.mace:MaceRelaxer"
 
 [project.entry-points."crucible.predictors"]
-# alignn = "crucible.predictors.alignn:AlignnPredictor"
+alignn = "crucible.predictors.alignn:AlignnPredictor"
 
 [project.entry-points."crucible.rankers"]
 battery_cathode  = "crucible.rankers.battery_cathode:BatteryCathodeRanker"
@@ -111,3 +114,6 @@ reportMissingTypeStubs = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+  "slow: tests that load real ML models and take >2s each (relaxers, predictors)",
+]
