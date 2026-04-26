@@ -57,7 +57,7 @@ crucible = "crucible.cli:app"
 # crystallm        = "crucible.generators.crystallm:CrystaLLMGenerator"
 # mattergen_colab  = "crucible.generators.mattergen_colab:MatterGenColabGenerator"
 # mattergen_local  = "crucible.generators.mattergen_local:MatterGenLocalGenerator"
-# random_baseline  = "crucible.generators.random_baseline:RandomBaselineGenerator"
+random_baseline  = "crucible.generators.random_baseline:RandomBaselineGenerator"
 
 [project.entry-points."crucible.relaxers"]
 # alignn_ff = "crucible.relaxers.alignn_ff:AlignnFFRelaxer"
