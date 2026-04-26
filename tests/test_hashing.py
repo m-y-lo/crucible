@@ -141,3 +141,23 @@ def test_stoichiometry_label_shape(elements: list[str], expected_prefix: str) ->
     )
     label = hashing.prototype_label(_cif(s))
     assert label.split("_")[0] == expected_prefix
+
+
+# --------------------------------------------------------------------------
+# Structure-input variants (used by the gauntlet pipeline to skip CIF
+# round-trip).
+# --------------------------------------------------------------------------
+
+
+def test_hash_structure_matches_cif_wrapper() -> None:
+    s = _nacl_conventional()
+    via_cif = hashing.structure_hash(_cif(s))
+    direct = hashing.hash_structure(s)
+    assert via_cif == direct
+
+
+def test_prototype_label_of_matches_cif_wrapper() -> None:
+    s = _nacl_conventional()
+    via_cif = hashing.prototype_label(_cif(s))
+    direct = hashing.prototype_label_of(s)
+    assert via_cif == direct

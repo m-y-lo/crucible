@@ -62,21 +62,30 @@ def _canonical_payload(structure: Structure, sg_number: int) -> dict:
     }
 
 
-def structure_hash(cif: str) -> str:
-    """Return a sha256 hex digest uniquely identifying the crystal in ``cif``.
+def hash_structure(structure: Structure) -> str:
+    """Return a sha256 hex digest uniquely identifying ``structure``.
 
-    The CIF is parsed, reduced to its primitive standard cell, and a
-    deterministic tuple of (space group, rounded lattice parameters, sorted
-    (element, rounded fractional coords)) is hashed. The same crystal in any
-    representation produces the same digest.
+    Reduces to the primitive standard cell, then hashes a deterministic
+    tuple of (space group, rounded lattice parameters, sorted (element,
+    rounded fractional coords)). The same crystal in any representation
+    produces the same digest.
+
+    Use this directly when you already have a parsed ``Structure`` (e.g.
+    inside the gauntlet pipeline). Use :func:`structure_hash` when you
+    only have CIF text.
     """
-    parsed = Structure.from_str(cif, fmt="cif")
-    sga = SpacegroupAnalyzer(parsed, symprec=_SYMPREC)
+    sga = SpacegroupAnalyzer(structure, symprec=_SYMPREC)
     primitive = sga.get_primitive_standard_structure()
     sg_number = sga.get_space_group_number()
     payload = _canonical_payload(primitive, sg_number)
     serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def structure_hash(cif: str) -> str:
+    """CIF-text wrapper around :func:`hash_structure`. See that function
+    for the canonicalization details."""
+    return hash_structure(Structure.from_str(cif, fmt="cif"))
 
 
 def _stoichiometry_label(structure: Structure) -> str:
@@ -94,8 +103,8 @@ def _stoichiometry_label(structure: Structure) -> str:
     return "".join(parts)
 
 
-def prototype_label(cif: str) -> str:
-    """Return an AFLOW-style prototype label for the crystal in ``cif``.
+def prototype_label_of(structure: Structure) -> str:
+    """Return an AFLOW-style prototype label for ``structure``.
 
     Format: ``"<stoich>_<pearson>_<sg_num>_<wyckoff>"`` where ``<stoich>`` is
     anonymized (NaCl -> AB), ``<pearson>`` is the Pearson symbol (cF8),
@@ -105,9 +114,11 @@ def prototype_label(cif: str) -> str:
     arrangement (element identities may differ).
 
     Example: NaCl rocksalt -> ``"AB_cF8_225_ab"``.
+
+    Use this when you already have a parsed ``Structure``; use
+    :func:`prototype_label` when you only have CIF text.
     """
-    parsed = Structure.from_str(cif, fmt="cif")
-    sga = SpacegroupAnalyzer(parsed, symprec=_SYMPREC)
+    sga = SpacegroupAnalyzer(structure, symprec=_SYMPREC)
     primitive = sga.get_primitive_standard_structure()
 
     stoich = _stoichiometry_label(primitive)
@@ -121,3 +132,9 @@ def prototype_label(cif: str) -> str:
     )
 
     return f"{stoich}_{pearson}_{sg_num}_{wyckoff_letters}"
+
+
+def prototype_label(cif: str) -> str:
+    """CIF-text wrapper around :func:`prototype_label_of`. See that function
+    for the format details."""
+    return prototype_label_of(Structure.from_str(cif, fmt="cif"))
