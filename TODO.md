@@ -66,7 +66,7 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 
 - [ ] Smoke test: `crucible run --budget 20` produces ≥1 structure that passes all gauntlet stages and lands in `rankings`.
 - [x] `test_units.py` — done.
-- [x] `test_registry.py` — done. Also written outside TODO: `test_config.py`, `test_logging.py`, `test_store.py`, `test_queue.py`.
+- [x] `test_registry.py` — done. Also written outside TODO: `test_config.py`, `test_logging.py`, active `test_store.py`, active `test_queue.py`.
 - [x] `test_hashing.py`, `test_gauntlet_parse.py`, `test_gauntlet_composition.py`, `test_gauntlet_geometry.py`, `test_gauntlet_novelty.py`, `test_gauntlet_dedup.py`, `test_gauntlet_pipeline.py`, `test_mp_client.py`. Total repo: 106 passing.
 
 ---

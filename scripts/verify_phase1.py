@@ -124,7 +124,8 @@ def main() -> int:
         all_ok &= _check("list_plugins('not_a_kind') raises KeyError", True)
 
     # ------------------------------------------------------------------
-    print("\n[5/5] Logging + Config — implemented; stores+queue still scaffolded")
+    print("\n[5/5] Logging + Config + Store + Queue — implemented")
+    import asyncio
     import json
     import logging as _stdlib_logging
     import tempfile
@@ -163,22 +164,45 @@ def main() -> int:
         for h in list(logger.handlers):
             h.close(); logger.removeHandler(h)
 
-    # store + queue still scaffolded (Wave 2 hasn't landed yet)
+    # store + queue: smoke their concrete implementations
+    from crucible.core.models import Prediction, Result
     from crucible.queues.local_queue import LocalQueue
     from crucible.stores.sqlite_store import LocalStore
 
-    try:
-        LocalStore("/tmp/never_used.db")
-        all_ok &= _check("stores.LocalStore raises NotImplementedError", False,
-                         "silently succeeded — implementation slipped through")
-    except NotImplementedError:
-        all_ok &= _check("stores.LocalStore raises NotImplementedError", True)
+    with tempfile.TemporaryDirectory() as td:
+        db_path = Path(td) / "crucible.db"
+        store = LocalStore(db_path)
+        try:
+            store.insert_structure(s)
+            store.insert_prediction(Prediction(
+                structure_hash=s.structure_hash,
+                provenance=mp,
+                values={"formation_energy_eV_per_atom": -1.0},
+                latency_ms=1,
+            ))
+            all_ok &= _check("stores.LocalStore round-trips Structure",
+                             store.get_by_hash(s.structure_hash) == s)
+            all_ok &= _check("stores.LocalStore dedup finds known structure",
+                             store.dedup_against_known(s) == s.structure_hash)
+        finally:
+            store.close()
 
-    try:
-        LocalQueue("/tmp/never_used.db")
-        all_ok &= _check("queues.LocalQueue raises NotImplementedError", False)
-    except NotImplementedError:
-        all_ok &= _check("queues.LocalQueue raises NotImplementedError", True)
+    async def _queue_smoke() -> bool:
+        with tempfile.TemporaryDirectory() as td:
+            queue = LocalQueue(Path(td) / "crucible.db")
+            try:
+                await queue.enqueue(Job(job_id="jq1", kind="predict", payload={"x": 1}, run_id="r1"))
+                got = await queue.dequeue(["predict"])
+                if got is None or got.job_id != "jq1" or got.payload != {"x": 1}:
+                    return False
+                await queue.mark_done("jq1", Result(job_id="jq1", ok=True, payload={"ok": True}))
+                result = await queue.get_result("jq1")
+                return result is not None and result.ok and result.payload == {"ok": True}
+            finally:
+                await queue.close()
+
+    all_ok &= _check("queues.LocalQueue enqueue/dequeue/result smoke",
+                     asyncio.run(_queue_smoke()))
 
     # ------------------------------------------------------------------
     print()
