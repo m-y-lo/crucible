@@ -197,11 +197,20 @@ def predict_cmd(
         raise typer.Exit(code=1) from exc
     except RuntimeError as exc:
         # Plugin is registered but its constructor refused (e.g. ALIGNN +
-        # DGL on macOS Apple Silicon). Surface the underlying message.
+        # DGL on macOS Apple Silicon without conda env). Surface the
+        # underlying message.
         console.print(f"[red]Predictor unavailable: {exc}[/red]")
         raise typer.Exit(code=1) from exc
 
-    props = pred.predict(cif)
+    try:
+        props = pred.predict(cif)
+    except RuntimeError as exc:
+        # Predictor exists but failed at inference (e.g. ALIGNN's conda
+        # subprocess can't find downloaded model weights, or input CIF is
+        # malformed). Don't dump a traceback — show the message.
+        console.print(f"[red]Prediction failed: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
     for key, value in props.items():
         console.print(f"  {key}: {value}")
 

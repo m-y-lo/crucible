@@ -182,24 +182,22 @@ def test_predict_unknown_predictor_name_errors(tmp_path: Path) -> None:
 
 
 def test_predict_alignn_on_macos_surfaces_runtime_error(tmp_path: Path) -> None:
-    """ALIGNN is registered, but its constructor refuses on macOS because
-    DGL's prebuilt graphbolt binary is missing. The CLI must catch the
-    RuntimeError and exit cleanly rather than dump a traceback.
+    """ALIGNN's auto-backend either:
+      - constructs in-process and tries to predict (Linux/CUDA path), or
+      - falls back to conda subprocess and tries to predict (macOS path), or
+      - raises at construction if neither works.
+    In all paths a malformed CIF causes a RuntimeError; the CLI must
+    catch it and exit 1 with a friendly message rather than dump a
+    traceback.
     """
-    # Skip if DGL actually works (Linux / CUDA hosts).
-    try:
-        import dgl  # noqa: F401
-        from dgl import graphbolt  # noqa: F401
-        pytest.skip("DGL is importable on this host; ALIGNN can be constructed.")
-    except (ImportError, FileNotFoundError):
-        pass
-
     cif_path = tmp_path / "x.cif"
     cif_path.write_text("dummy")
     result = runner.invoke(app, ["predict", str(cif_path)])
     assert result.exit_code == 1
-    assert "Predictor unavailable" in result.output
-    assert "alignn" in result.output.lower() or "dgl" in result.output.lower()
+    # Two acceptable error surfaces: construction-time ("Predictor
+    # unavailable") or inference-time ("Prediction failed").
+    out = result.output
+    assert "Predictor unavailable" in out or "Prediction failed" in out
 
 
 # ---------------------------------------------------------------------------
