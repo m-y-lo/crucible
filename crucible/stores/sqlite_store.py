@@ -169,6 +169,102 @@ class LocalStore:
         ).fetchone()
         return row["structure_hash"] if row else None
 
+    # ------------------------------------------------------------------
+    # Run / ranking / gauntlet-event writes (Phase 1.5 — orchestrator
+    # persistence). Schema columns come from crucible.core._schema.
+    # ------------------------------------------------------------------
+
+    def insert_run(
+        self,
+        run_id: str,
+        target: str,
+        budget: int,
+        config_json: str = "{}",
+    ) -> None:
+        """Idempotently record the start of a discovery run.
+
+        Sets ``started_at`` to now (UTC, isoformat). ``ended_at`` is left
+        NULL until :meth:`mark_run_ended` fires.
+        """
+        self._require_open().execute(
+            """
+            INSERT OR IGNORE INTO runs
+                (run_id, target, config_json, budget, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?, NULL)
+            """,
+            (run_id, target, config_json, budget, datetime.utcnow().isoformat()),
+        )
+
+    def mark_run_ended(self, run_id: str) -> None:
+        """Stamp ``runs.ended_at`` so ``crucible status`` shows the run as done."""
+        self._require_open().execute(
+            "UPDATE runs SET ended_at = ? WHERE run_id = ?",
+            (datetime.utcnow().isoformat(), run_id),
+        )
+
+    def insert_ranking(
+        self,
+        structure_hash: str,
+        run_id: str,
+        target: str,
+        ranker_name: str,
+        ranker_version: str,
+        passes_criteria: bool,
+        score: float | None,
+        reasoning_json: str = "{}",
+    ) -> None:
+        """Insert a ranker output row.
+
+        ``UNIQUE (structure_hash, run_id, target, ranker_name, ranker_version)``
+        means re-running the same ranker on the same structure within a run
+        is a no-op (INSERT OR IGNORE).
+        """
+        self._require_open().execute(
+            """
+            INSERT OR IGNORE INTO rankings
+                (structure_hash, run_id, target, ranker_name, ranker_version,
+                 passes_criteria, score, reasoning_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                structure_hash,
+                run_id,
+                target,
+                ranker_name,
+                ranker_version,
+                1 if passes_criteria else 0,
+                score,
+                reasoning_json,
+                datetime.utcnow().isoformat(),
+            ),
+        )
+
+    def insert_gauntlet_event(
+        self,
+        run_id: str,
+        stage: str,
+        passed: bool,
+        reason: str | None = None,
+        structure_hash: str | None = None,
+    ) -> None:
+        """Append one gauntlet stage outcome. Each event is a new row;
+        no UNIQUE constraint, so callers do not need to deduplicate."""
+        self._require_open().execute(
+            """
+            INSERT INTO gauntlet_events
+                (run_id, stage, passed, reason, structure_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                stage,
+                1 if passed else 0,
+                reason,
+                structure_hash,
+                datetime.utcnow().isoformat(),
+            ),
+        )
+
     def materialize_view(self, name: str) -> None:
         """Refresh a denormalized view table for a ranker target.
 
