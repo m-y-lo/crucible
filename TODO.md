@@ -26,7 +26,7 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 - [x] `core/models.py` — `Structure`, `Prediction`, `Job`, `Result`, `ModelProvenance`.
 - [x] `core/protocols.py` — every contract from ARCHITECTURE.md §3.
 - [x] `core/units.py` — eV, eV/atom, GPa, Å + safe converters.
-- [ ] `core/hashing.py` — canonical primitive-cell sha256 + AFLOW prototype label.
+- [x] `core/hashing.py` — canonical primitive-cell sha256 + AFLOW prototype label. Plus `hash_structure()` / `prototype_label_of()` Structure-input variants used by the gauntlet pipeline.
 - [x] `core/config.py` — pydantic schema for `crucible.yaml`.
 - [x] `core/registry.py` — entry-point loader with `lru_cache`.
 - [x] `core/logging.py` — JSON line logger to file + rich console.
@@ -38,13 +38,13 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 
 ### Gauntlet
 
-- [ ] `gauntlet/parse.py` — CIF → pymatgen.Structure (catch + log).
-- [ ] `gauntlet/composition.py` — reduced formula + BVAnalyzer charge balance.
-- [ ] `gauntlet/geometry.py` — nearest-neighbor + volume sanity.
-- [ ] `data/mp_client.py` — cached `MPRester` wrapper.
-- [ ] `gauntlet/novelty.py` — flag rediscoveries against MP.
-- [ ] `gauntlet/dedup.py` — coarse (prototype + composition) + StructureMatcher fallback.
-- [ ] `gauntlet/pipeline.py` — composes stages with early exit + `gauntlet_events` writes.
+- [x] `gauntlet/parse.py` — CIF → pymatgen.Structure with structured rejection, never raises.
+- [x] `gauntlet/composition.py` — reduced formula + BVAnalyzer charge balance.
+- [x] `gauntlet/geometry.py` — min interatomic distance (0.7×Σ radii) + cell volume per atom in [5, 100] Å³.
+- [x] `data/mp_client.py` — cached `MPRester` wrapper. SQLite cache, JSON-serialized payloads, separate cache namespaces per method.
+- [x] `gauntlet/novelty.py` — flag rediscoveries against MP via StructureMatcher; conservative on MP outage.
+- [x] `gauntlet/dedup.py` — three-tier (hash exact → prototype bucket → StructureMatcher fallback). Stateful `Deduplicator` per run.
+- [x] `gauntlet/pipeline.py` — composes stages with early exit; returns `GauntletResult` with event log; storage-agnostic.
 
 ### Generators / Relaxers / Predictors / Rankers
 
@@ -67,7 +67,7 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 - [ ] Smoke test: `crucible run --budget 20` produces ≥1 structure that passes all gauntlet stages and lands in `rankings`.
 - [x] `test_units.py` — done.
 - [x] `test_registry.py` — done. Also written outside TODO: `test_config.py`, `test_logging.py`, `test_store.py`, `test_queue.py`.
-- [ ] `test_hashing.py`, `test_gauntlet.py` — pending.
+- [x] `test_hashing.py`, `test_gauntlet_parse.py`, `test_gauntlet_composition.py`, `test_gauntlet_geometry.py`, `test_gauntlet_novelty.py`, `test_gauntlet_dedup.py`, `test_gauntlet_pipeline.py`, `test_mp_client.py`. Total repo: 106 passing.
 
 ---
 
