@@ -77,10 +77,10 @@ claude_tools = "crucible.orchestrators.claude_tools:ClaudeOrchestrator"
 # rule_based   = "crucible.orchestrators.rule_based:RuleBasedOrchestrator"
 
 [project.entry-points."crucible.stores"]
-# sqlite = "crucible.stores.sqlite_store:LocalStore"
+sqlite = "crucible.stores.sqlite_store:LocalStore"
 
 [project.entry-points."crucible.queues"]
-# local = "crucible.queues.local_queue:LocalQueue"
+local = "crucible.queues.local_queue:LocalQueue"
 
 [dependency-groups]
 dev = [

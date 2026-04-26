@@ -52,19 +52,19 @@ Shared brain for Crucible. Move items between phases as work progresses. See `AR
 - [x] `generators/random_baseline.py` — rattles a seed CIF / built-in NaCl baseline with reproducible RNG for sanity tests.
 - [ ] `relaxers/alignn_ff.py` — single-point energy for the cheap screen.
 - [ ] `predictors/alignn.py` — wraps `jv_formation_energy_peratom_alignn` and `jv_optb88vdw_bandgap`, populates `ModelProvenance`.
-- [ ] `rankers/battery_cathode.py` — `criteria()` (contains-Li, E_form < −1.0 eV/atom, bandgap < 1.5 eV) + `score()` with thresholds in docstring.
+- [x] `rankers/battery_cathode.py` — `criteria()` (contains-Li, E_form < −1.0 eV/atom, bandgap < 1.5 eV) + `score()` with stability + bandgap-sweet-spot + Li-fraction signals.
 
 ### Orchestrator & CLI
 
-- [ ] `agents/tools.py` — five Claude tool schemas.
-- [ ] `agents/prompts.py` — system prompt + battery-cathode framing.
-- [ ] `orchestrators/claude_tools.py` — `ClaudeOrchestrator` Anthropic-SDK tool-use loop, default `claude-sonnet-4-6`.
-- [ ] `cli.py` — `crucible run`, `crucible predict <cif>`, `crucible status`, `crucible plugins`.
-- [ ] `reports/status.py` — leaderboard + gauntlet histogram from SQLite.
+- [x] `agents/tools.py` — five Anthropic tool schemas + canonical name constants + `tool_by_name` accessor.
+- [x] `agents/prompts.py` — `SYSTEM_PROMPT` (4 operating rules) + `TARGET_PROMPTS["battery_cathode"]` + `initial_user_message` formatter.
+- [x] `orchestrators/claude_tools.py` — `ClaudeOrchestrator` Anthropic-SDK tool-use loop. In-memory state for Phase 1; store persistence in Phase 2.
+- [x] `cli.py` — `crucible run / status / plugins / predict` via Typer. Loads `.env` automatically.
+- [x] `reports/status.py` — leaderboard + gauntlet histogram via rich tables, read-only sqlite.
 
 ### Validation
 
-- [ ] Smoke test: `crucible run --budget 20` produces ≥1 structure that passes all gauntlet stages and lands in `rankings`.
+- [x] **Offline smoke**: `scripts/smoke_run.py` runs every plugin end-to-end with fake ALIGNN-style predictions; produces ≥1 passing battery-cathode candidate. Phase 1.5 will satisfy the `crucible run --budget 20 → ≥1 row in rankings` form once orchestrator-to-store persistence lands.
 - [x] `test_units.py` — done.
 - [x] `test_registry.py` — done. Also written outside TODO: `test_config.py`, `test_logging.py`, active `test_store.py`, active `test_queue.py`.
 - [x] `test_hashing.py`, `test_gauntlet_parse.py`, `test_gauntlet_composition.py`, `test_gauntlet_geometry.py`, `test_gauntlet_novelty.py`, `test_gauntlet_dedup.py`, `test_gauntlet_pipeline.py`, `test_generators_random_baseline.py`, `test_mp_client.py`. Total repo: 116 passing.
