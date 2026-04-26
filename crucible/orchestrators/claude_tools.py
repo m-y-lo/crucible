@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from pymatgen.core import Structure
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 from crucible.agents.prompts import initial_user_message, system_prompt
 from crucible.agents.tools import (
@@ -39,7 +40,12 @@ from crucible.agents.tools import (
     TOOL_RELAX,
     TOOL_SCORE_AND_RANK,
 )
-from crucible.core.hashing import hash_structure
+from crucible.core.hashing import hash_structure, prototype_label_of
+from crucible.core.models import (
+    ModelProvenance,
+    Prediction as CorePrediction,
+    Structure as CoreStructure,
+)
 from crucible.core.registry import load as registry_load
 from crucible.data.mp_client import MPClient
 from crucible.gauntlet.dedup import Deduplicator
@@ -48,6 +54,7 @@ from crucible.rankers.battery_cathode import (
     LITHIUM_FRACTION_KEY,
     lithium_fraction,
 )
+from crucible.stores.sqlite_store import LocalStore
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +100,7 @@ class ClaudeOrchestrator:
         mp_client: MPClient | None = None,
         skip_novelty: bool = False,
         client: Any | None = None,
+        store: LocalStore | None = None,
     ) -> None:
         # ``client`` injection makes the orchestrator testable without a
         # real Anthropic key. When None, we construct one from
@@ -122,6 +130,11 @@ class ClaudeOrchestrator:
                 "novelty stage enabled but no mp_client passed; "
                 "either provide one or set skip_novelty=True"
             )
+        # Optional persistent store. When None, the orchestrator runs in
+        # the in-memory-only Phase 1 mode (no SQLite writes); when set,
+        # every gauntlet event, structure, prediction, and ranking is
+        # persisted alongside the run row.
+        self._store = store
 
     # ------------------------------------------------------------------ run
 
@@ -131,6 +144,10 @@ class ClaudeOrchestrator:
             raise ValueError(f"budget must be positive, got {budget}")
 
         state = _RunState(run_id=uuid.uuid4().hex, target=target, budget=budget)
+        if self._store is not None:
+            self._store.insert_run(
+                run_id=state.run_id, target=target, budget=budget
+            )
 
         messages: list[dict[str, Any]] = [
             {"role": "user", "content": initial_user_message(target, budget)}
@@ -181,6 +198,8 @@ class ClaudeOrchestrator:
                     }
                 )
 
+        if self._store is not None:
+            self._store.mark_run_ended(state.run_id)
         return state.run_id
 
     # ----------------------------------------------------------- dispatcher
@@ -231,6 +250,19 @@ class ClaudeOrchestrator:
                 deduplicator=state.deduplicator,
                 skip_novelty=self._skip_novelty,
             )
+
+            # Persist every stage outcome so `crucible status` can render
+            # the rejection histogram.
+            if self._store is not None:
+                for ev in result.events:
+                    self._store.insert_gauntlet_event(
+                        run_id=state.run_id,
+                        stage=ev.stage,
+                        passed=ev.passed,
+                        reason=ev.reason,
+                        structure_hash=ev.structure_hash,
+                    )
+
             if result.passed:
                 # ``GauntletResult.structure_hash`` is set when dedup ran;
                 # fall back to recomputing if a future stage shifts that.
@@ -239,6 +271,19 @@ class ClaudeOrchestrator:
                 if result.structure is not None:
                     state.structures[h] = result.structure
                 survivors.append({"structure_hash": h, "cif": cif})
+
+                # Persist the survivor as a structures-table row so
+                # rankings have a foreign-key target.
+                if self._store is not None and result.structure is not None:
+                    self._persist_structure(
+                        h,
+                        cif,
+                        result.structure,
+                        result.prototype_label,
+                        result.composition_formula,
+                        generator_name,
+                        state.run_id,
+                    )
             else:
                 stage = result.rejected_at or "unknown"
                 rejection_counts[stage] = rejection_counts.get(stage, 0) + 1
@@ -249,6 +294,41 @@ class ClaudeOrchestrator:
             "survivors": survivors,
             "rejected_counts": rejection_counts,
         }
+
+    def _persist_structure(
+        self,
+        structure_hash: str,
+        cif: str,
+        pmg_structure: Structure,
+        prototype: str | None,
+        composition: str | None,
+        source_generator: str,
+        run_id: str,
+    ) -> None:
+        """Build a ``crucible.core.models.Structure`` and persist it.
+
+        Computes any missing metadata (prototype label, composition,
+        space group) from the pymatgen Structure on the fly. Idempotent
+        via the store's ``INSERT OR IGNORE``.
+        """
+        if self._store is None:
+            return
+        try:
+            sg = SpacegroupAnalyzer(pmg_structure, symprec=1e-3).get_space_group_number()
+        except Exception:
+            sg = 0
+        proto = prototype or prototype_label_of(pmg_structure)
+        comp = composition or pmg_structure.composition.reduced_formula
+        record = CoreStructure(
+            cif=cif,
+            structure_hash=structure_hash,
+            prototype_label=proto,
+            composition=comp,
+            space_group=int(sg),
+            source_generator=source_generator,
+            source_run_id=run_id,
+        )
+        self._store.insert_structure(record)
 
     def _handle_relax(self, args: dict[str, Any], state: _RunState) -> dict[str, Any]:
         relaxer_name = args["relaxer"]
@@ -271,6 +351,7 @@ class ClaudeOrchestrator:
 
         predictor = registry_load("predictor", predictor_name)
         props = predictor.predict(cif)
+        provenance: ModelProvenance | None = getattr(predictor, "provenance", None)
 
         # Cache by structure_hash so score_and_rank can find them later.
         try:
@@ -283,6 +364,29 @@ class ClaudeOrchestrator:
         except Exception:
             # Hashing failed; report the predictions but skip caching.
             h = None
+
+        # Persist the prediction. We need the structure row to exist
+        # already (FK target). If predict was called on a CIF the
+        # gauntlet has not yet seen, we lazily insert a stub structures
+        # row first.
+        if self._store is not None and h is not None and provenance is not None:
+            self._persist_structure(
+                h,
+                cif,
+                state.structures[h],
+                None,
+                None,
+                source_generator="predict_call",
+                run_id=state.run_id,
+            )
+            self._store.insert_prediction(
+                CorePrediction(
+                    structure_hash=h,
+                    provenance=provenance,
+                    values={k: float(v) for k, v in props.items()},
+                    latency_ms=0,
+                )
+            )
 
         state.predict_count += 1
         return {
@@ -298,6 +402,8 @@ class ClaudeOrchestrator:
         hashes = args.get("structure_hashes") or []
 
         ranker = registry_load("ranker", ranker_name)
+        # Ranker plugins may carry a `version` attribute; default if not.
+        ranker_version = str(getattr(ranker, "version", "1.0"))
         out = []
         for h in hashes:
             props = dict(state.predictions.get(h, {}))
@@ -316,6 +422,18 @@ class ClaudeOrchestrator:
             out.append(row)
             if passes:
                 state.rankings.append({**row, "ranker": ranker_name})
+
+            if self._store is not None:
+                self._store.insert_ranking(
+                    structure_hash=h,
+                    run_id=state.run_id,
+                    target=state.target,
+                    ranker_name=ranker_name,
+                    ranker_version=ranker_version,
+                    passes_criteria=passes,
+                    score=score_value if passes else None,
+                    reasoning_json=json.dumps({"props_used": props}),
+                )
         return {"ranker": ranker_name, "results": out}
 
     def _handle_query_cache(

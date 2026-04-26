@@ -86,25 +86,38 @@ def run_cmd(
             console.print(f"[red]MP novelty enabled but {exc}[/red]")
             raise typer.Exit(code=1) from exc
 
+    # Construct the persistent store so the orchestrator writes runs +
+    # rankings + gauntlet_events as it goes; `crucible status` then has
+    # something to show.
+    from crucible.stores.sqlite_store import LocalStore
+
+    store = LocalStore(cfg.store.path)
+
     try:
         orch = registry_load(
             "orchestrator",
             cfg.orchestrator.name,
             mp_client=mp_client,
             skip_novelty=not use_novelty,
+            store=store,
             **cfg.orchestrator.options,
         )
     except KeyError as exc:
+        store.close()
         console.print(f"[red]Unknown orchestrator: {exc}[/red]")
         raise typer.Exit(code=1) from exc
     except RuntimeError as exc:
+        store.close()
         console.print(f"[red]Orchestrator init failed: {exc}[/red]")
         raise typer.Exit(code=1) from exc
 
     console.print(
         f"[cyan]Starting run[/cyan] target={target!r} budget={budget}"
     )
-    run_id = orch.run(target, budget)
+    try:
+        run_id = orch.run(target, budget)
+    finally:
+        store.close()
     console.print(f"[green]Run complete[/green] run_id={run_id}")
 
 
